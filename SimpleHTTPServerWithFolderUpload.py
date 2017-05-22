@@ -27,6 +27,7 @@ import shutil
 import mimetypes
 import re
 from io import BytesIO
+import argparse
 
 
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -230,7 +231,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         path = posixpath.normpath(urllib.parse.unquote(path))
         words = path.split('/')
         words = [_f for _f in words if _f]
-        path = os.getcwd()
+        path = PATH
         for word in words:
             drive, word = os.path.splitdrive(word)
             head, word = os.path.split(word)
@@ -291,9 +292,19 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
 def test(HandlerClass=SimpleHTTPRequestHandler,
-         ServerClass=http.server.HTTPServer):
-    http.server.test(HandlerClass, ServerClass)
+         ServerClass=http.server.HTTPServer, port=8000):
+    http.server.test(HandlerClass, ServerClass, port=port)
 
+
+PATH = os.getcwd()
 
 if __name__ == '__main__':
-    test()
+    parser = argparse.ArgumentParser(description='''Run a simple http server
+                                     to share files and folders''')
+    parser.add_argument("path", help='''path to be shared''',
+                        nargs='?', default=os.getcwd())
+    parser.add_argument("-p", "--port", type=int, default=8000,
+                        help="port number for listening to http requests")
+    args = parser.parse_args()
+    PATH = args.path
+    test(port=args.port)
