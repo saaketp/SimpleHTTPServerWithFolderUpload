@@ -25,7 +25,6 @@ import urllib.request, urllib.parse, urllib.error
 import cgi
 import shutil
 import mimetypes
-import re
 from io import BytesIO
 import argparse
 
@@ -85,48 +84,44 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             self.copyfile(f, self.wfile)
             f.close()
 
-    def deal_post_data(self):
-        content_type = self.headers['content-type']
-        if not content_type:
-            return (False, "Content-Type header doesn't contain boundary")
-        boundary = content_type.split("=")[1].encode()
-        remainbytes = int(self.headers['content-length'])
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        if boundary not in line:
-            return (False, "Content NOT begin with boundary")
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
-        if not fn:
-            return (False, "Can't find out file name...")
-        path = self.translate_path(self.path)
-        fn = os.path.join(path, fn[0])
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        try:
-            out = open(fn, 'wb')
-        except IOError:
-            return (False, "Can't create file to write, do you have permission to write?")
+    def save_file(self, file):
+        outpath = os.path.join(PATH, file.filename)
+        outpath1 = outpath.rsplit('/', 1)
+        os.makedirs(outpath1[0], exist_ok=True)
+        if os.path.exists(outpath):
+            raise IOError
+        with open(outpath, 'wb') as fout:
+            shutil.copyfileobj(file.file, fout, 100000)
 
-        preline = self.rfile.readline()
-        remainbytes -= len(preline)
-        while remainbytes > 0:
-            line = self.rfile.readline()
-            remainbytes -= len(line)
-            if boundary in line:
-                preline = preline[0:-1]
-                if preline.endswith(b'\r'):
-                    preline = preline[0:-1]
-                out.write(preline)
-                out.close()
-                return (True, "File '%s' upload success!" % fn)
+    def deal_post_data(self):
+        form = cgi.FieldStorage(fp=self.rfile,
+                                headers=self.headers,
+                                environ={'REQUEST_METHOD': 'POST'})
+        saved_fns = ""
+        try:
+            if isinstance(form['file'], list):
+                for f in form['file']:
+                    if f.filename != '':
+                        saved_fns += ", " + f.filename
+                        self.save_file(f)
             else:
-                out.write(preline)
-                preline = line
-        return (False, "Unexpect Ends of data.")
+                f = form['file']
+                if f.filename != '':
+                    self.save_file(f)
+                    saved_fns += ", " + f.filename
+            if isinstance(form['dfile'], list):
+                for f in form['dfile']:
+                    if f.filename != '':
+                        saved_fns += ", " + f.filename
+                        self.save_file(f)
+            else:
+                f = form['dfile']
+                if f.filename != '':
+                    self.save_file(f)
+                    saved_fns += ", " + f.filename
+            return (True, "File(s) '%s' upload success!" % saved_fns)
+        except IOError:
+            return (False, "Can't create file to write, permission denied?")
 
     def send_head(self):
         """Common code for GET and HEAD commands.
@@ -193,7 +188,11 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         f.write(("<body>\n<h2>Directory listing for %s</h2>\n" % displaypath).encode())
         f.write(b"<hr>\n")
         f.write(b"<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
-        f.write(b"<input name=\"file\" type=\"file\"/>")
+        f.write(b"Files upload:\t")
+        f.write(b"<input name=\"file\" type=\"file\" multiple=\"\"/>")
+        f.write(b"<br>Folder upload:\t")
+        f.write(b"<input name=\"dfile\" type=\"file\" multiple=\"\" ")
+        f.write(b"directory=\"\" webkitdirectory=\"\" mozdirectory=\"\"/>")
         f.write(b"<input type=\"submit\" value=\"upload\"/></form>\n")
         f.write(b"<hr>\n<ul>\n")
         for name in list:
