@@ -7,20 +7,23 @@ and adds folder upload functionality by taking hints from stackoverflow
 answer [3].
 
 + Some other improvements and changes.
++ Async server from [4]
 
 [1] https://gist.github.com/UniIsland/3346170
 [2] https://gist.github.com/touilleMan/eb02ea40b93e52604938
 [3] http://stackoverflow.com/a/37560550
+[4] https://gist.github.com/jdinhlife/1f2e142bbe8036b1a9716f41b8b11ed1
 """
 
 
-__version__ = "0.1"
-__all__ = ["SimpleHTTPRequestHandler"]
+__version__ = "0.2"
+__all__ = ["SimpleHTTPRequestHandler", "ThreadingSimpleServer"]
 __author__ = "saaketp"
 
 import os
 import posixpath
 import http.server
+import socketserver
 import urllib.request, urllib.parse, urllib.error
 import cgi
 import shutil
@@ -290,8 +293,13 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         })
 
 
+class ThreadingSimpleServer(socketserver.ThreadingMixIn,
+                            http.server.HTTPServer):
+    pass
+
+
 def test(HandlerClass=SimpleHTTPRequestHandler,
-         ServerClass=http.server.HTTPServer, port=8000):
+         ServerClass=ThreadingSimpleServer, port=8000):
     http.server.test(HandlerClass, ServerClass, port=port)
 
 
