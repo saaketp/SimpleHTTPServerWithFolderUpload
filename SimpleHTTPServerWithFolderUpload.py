@@ -89,7 +89,7 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def save_file(self, file):
         outpath = os.path.join(PATH, file.filename)
-        outpath1 = outpath.rsplit('/', 1)
+        outpath1 = os.path.split(outpath)
         os.makedirs(outpath1[0], exist_ok=True)
         if os.path.exists(outpath):
             raise IOError
