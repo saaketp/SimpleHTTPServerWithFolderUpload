@@ -87,8 +87,8 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             self.copyfile(f, self.wfile)
             f.close()
 
-    def save_file(self, file):
-        outpath = os.path.join(PATH, file.filename)
+    def save_file(self, file, folder):
+        outpath = os.path.join(PATH, folder, file.filename)
         outpath1 = os.path.split(outpath)
         os.makedirs(outpath1[0], exist_ok=True)
         if os.path.exists(outpath):
@@ -100,27 +100,28 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         form = cgi.FieldStorage(fp=self.rfile,
                                 headers=self.headers,
                                 environ={'REQUEST_METHOD': 'POST'})
+        folder = urllib.parse.urlparse(form.headers['Referer']).path[1:]
         saved_fns = ""
         try:
             if isinstance(form['file'], list):
                 for f in form['file']:
                     if f.filename != '':
                         saved_fns += ", " + f.filename
-                        self.save_file(f)
+                        self.save_file(f, folder)
             else:
                 f = form['file']
                 if f.filename != '':
-                    self.save_file(f)
+                    self.save_file(f, folder)
                     saved_fns += ", " + f.filename
             if isinstance(form['dfile'], list):
                 for f in form['dfile']:
                     if f.filename != '':
                         saved_fns += ", " + f.filename
-                        self.save_file(f)
+                        self.save_file(f, folder)
             else:
                 f = form['dfile']
                 if f.filename != '':
-                    self.save_file(f)
+                    self.save_file(f, folder)
                     saved_fns += ", " + f.filename
             return (True, "File(s) '%s' upload success!" % saved_fns)
         except IOError:
